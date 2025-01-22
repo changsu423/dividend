@@ -319,13 +319,93 @@ def display_korean_etf_info(etf_code):
         display_distribution_chart(data)
 
 def display_us_stock_info(ticker, period):
+    """미국 주식 정보 디스플레이"""
     history, info, dividends, error = get_us_stock_data(ticker, period)
     if error:
         st.error(error)
     else:
-        display_us_asset_info(ticker, history, info, dividends, "주식")
+        st.header(f"📈 {info.get('shortName', ticker)} 주식 정보")
+        st.subheader("주가 데이터")
+        st.dataframe(history, use_container_width=True)
+
+        # 주가 차트
+        fig = go.Figure(data=[
+            go.Candlestick(
+                x=history.index,
+                open=history['Open'],
+                high=history['High'],
+                low=history['Low'],
+                close=history['Close'],
+                name="주가"
+            )
+        ])
+        fig.update_layout(
+            title=f"{ticker} 주가 추이",
+            yaxis_title="주가",
+            xaxis_title="날짜",
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+        # 배당 데이터
+        if not dividends.empty:
+            st.subheader("배당 데이터")
+            st.dataframe(dividends, use_container_width=True)
+            st.line_chart(dividends, use_container_width=True)
 
 def display_us_etf_info(ticker, period):
+    """미국 ETF 정보 디스플레이"""
     history, info, distributions, error = get_us_etf_data(ticker, period)
     if error:
-        st.error(error
+        st.error(error)
+    else:
+        st.header(f"📊 {info.get('shortName', ticker)} ETF 정보")
+        st.subheader("주가 데이터")
+        st.dataframe(history, use_container_width=True)
+
+        # ETF 주가 차트
+        fig = go.Figure(data=[
+            go.Candlestick(
+                x=history.index,
+                open=history['Open'],
+                high=history['High'],
+                low=history['Low'],
+                close=history['Close'],
+                name="ETF 주가"
+            )
+        ])
+        fig.update_layout(
+            title=f"{ticker} ETF 주가 추이",
+            yaxis_title="주가",
+            xaxis_title="날짜",
+            template="plotly_white"
+        )
+        st.plotly_chart(fig)
+
+        # 분배금 데이터
+        if not distributions.empty:
+            st.subheader("분배금 데이터")
+            st.dataframe(distributions, use_container_width=True)
+            st.line_chart(distributions, use_container_width=True)
+
+def display_distribution_summary(data):
+    """ETF 분배금 요약"""
+    total_distributions = data["총분배금"].sum()
+    st.metric("총 분배금", f"{total_distributions:,.0f} 원")
+
+def display_distribution_chart(data):
+    """ETF 분배금 차트"""
+    fig = go.Figure(
+        data=[go.Bar(x=data['지급일'], y=data['총분배금'], name='총 분배금')]
+    )
+    fig.update_layout(
+        title="ETF 분배금 추이",
+        yaxis_title="총 분배금",
+        xaxis_title="지급일",
+        template="plotly_white"
+    )
+    st.plotly_chart(fig)
+
+# 앱 실행
+if __name__ == "__main__":
+    main()
