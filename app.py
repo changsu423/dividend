@@ -107,7 +107,7 @@ else:
 ```plaintext
 my-stock-analysis/
 
-├── .env                     # DART API 키를 저장하는 파일 (로컬에 저장)
-├── requirements.txt         # Python 의존성 라이브러리 목록
-├── app.py                   # Streamlit 메인 코드
-└── README.md                # 프로젝트 설명 문서
+# .env                     # DART API 키를 저장하는 파일 (로컬에 저장)
+# requirements.txt         # Python 의존성 라이브러리 목록
+# app.py                   # Streamlit 메인 코드
+# README.md                # 프로젝트 설명 문서
