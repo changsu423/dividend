@@ -10,13 +10,18 @@ import os
 load_dotenv()
 DART_API_KEY = os.getenv('DART_API_KEY')
 
-def get_korean_stock_data(corp_code, year):
+def get_korean_stock_data(corp_code, year, reprt_code="11011"):
     """
     Fetch dividend information for Korean stocks using the DART API.
     
     Args:
         corp_code (str): Company code (6 digits)
         year (int): Business year
+        reprt_code (str): Report code
+            - "11011": 사업보고서
+            - "11012": 반기보고서
+            - "11013": 1분기보고서
+            - "11014": 3분기보고서
         
     Returns:
         tuple: (DataFrame of dividend data, error message if any)
@@ -25,7 +30,8 @@ def get_korean_stock_data(corp_code, year):
     params = {
         'crtfc_key': DART_API_KEY,
         'corp_code': corp_code,
-        'bsns_year': year
+        'bsns_year': year,
+        'reprt_code': reprt_code  # 사업보고서 기준
     }
     
     try:
@@ -36,7 +42,25 @@ def get_korean_stock_data(corp_code, year):
         if data.get('status') != "000":
             return None, f"DART API 오류: {data.get('message')}"
             
-        return pd.DataFrame(data.get('list', [])), None
+        if not data.get('list'):
+            return pd.DataFrame(), "데이터가 없습니다."
+            
+        df = pd.DataFrame(data['list'])
+        
+        # 컬럼명을 한글로 변경
+        column_mapping = {
+            'thstrm': '당기',
+            'frmtrm': '전기',
+            'lwfr': '전전기',
+            'stock_knd': '주식 종류',
+            'thstrm_dd': '당기 배당일',
+            'frmtrm_dd': '전기 배당일',
+            'lwfr_dd': '전전기 배당일'
+        }
+        
+        df = df.rename(columns=column_mapping)
+        return df, None
+        
     except requests.exceptions.RequestException as e:
         return None, f"API 요청 오류: {str(e)}"
 
@@ -78,34 +102,66 @@ def main():
 
 def render_korean_stock_section():
     st.sidebar.subheader("한국 주식 검색")
-    corp_code = st.sidebar.text_input("종목 코드 입력", 
-                                    placeholder="6자리 코드 (예: 005930)",
-                                    help="삼성전자: 005930, SK하이닉스: 000660")
+    
+    # 종목 코드 입력
+    corp_code = st.sidebar.text_input(
+        "종목 코드 입력", 
+        placeholder="6자리 코드 (예: 005930)",
+        help="삼성전자: 005930, SK하이닉스: 000660"
+    )
+    
+    # 사업연도 선택
     year = st.sidebar.slider("배당 정보 사업연도 선택", 2000, 2025, 2024)
     
+    # 보고서 종류 선택
+    report_types = {
+        "11011": "사업보고서",
+        "11012": "반기보고서",
+        "11013": "1분기보고서",
+        "11014": "3분기보고서"
+    }
+    reprt_code = st.sidebar.selectbox(
+        "보고서 종류",
+        options=list(report_types.keys()),
+        format_func=lambda x: report_types[x],
+        help="조회할 보고서 종류를 선택하세요"
+    )
+    
     if corp_code:
-        data, error = get_korean_stock_data(corp_code, year)
+        if len(corp_code) != 6:
+            st.error("종목 코드는 6자리여야 합니다.")
+            return
+            
+        data, error = get_korean_stock_data(corp_code, year, reprt_code)
+        
         if error:
-            st.error(error)
+            if "데이터가 없습니다" in error:
+                st.warning(f"{year}년 {report_types[reprt_code]}의 배당 정보가 없습니다.")
+            else:
+                st.error(error)
         elif data.empty:
             st.warning("해당 연도의 배당 정보가 없습니다.")
         else:
-            st.header(f"📈 {corp_code} 배당 정보 ({year}년)")
+            st.header(f"📈 {corp_code} 배당 정보 ({year}년 {report_types[reprt_code]})")
             st.dataframe(data, use_container_width=True)
 
 def render_us_stock_section():
     st.sidebar.subheader("미국 주식 검색")
-    ticker = st.sidebar.text_input("티커 심볼 입력", 
-                                 placeholder="예: AAPL, TSLA",
-                                 help="AAPL: Apple, MSFT: Microsoft")
+    ticker = st.sidebar.text_input(
+        "티커 심볼 입력", 
+        placeholder="예: AAPL, TSLA",
+        help="AAPL: Apple, MSFT: Microsoft"
+    )
     
     period_options = {
         '1mo': '1개월', '3mo': '3개월', '6mo': '6개월',
         '1y': '1년', '2y': '2년'
     }
-    period = st.sidebar.selectbox("데이터 기간", 
-                                list(period_options.keys()),
-                                format_func=lambda x: period_options[x])
+    period = st.sidebar.selectbox(
+        "데이터 기간", 
+        list(period_options.keys()),
+        format_func=lambda x: period_options[x]
+    )
     
     if ticker:
         stock_data, stock_info, error = get_us_stock_data(ticker, period)
